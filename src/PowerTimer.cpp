@@ -18,16 +18,37 @@ typedef struct {
   char family;
   int group;
   int number;
-} socketmapping_t;
+} socket_t;
 
-socketmapping_t sockets[] = {
-  socketmapping_t{'a', 1, 1},
-  socketmapping_t{'a', 1, 2},
-  socketmapping_t{'a', 1, 3}
+socket_t sockets[] = {
+  socket_t{'a', 1, 1},
+  socket_t{'a', 1, 2},
+  socket_t{'a', 1, 3}
 };
+
+typedef struct {
+  AlarmID_t alarm_id;
+  String name;
+  bool on;
+  socket_t *socket;
+  int hour;
+  int minute;
+  int second;
+} socket_timer_t;
 
 bool socket1 = true;
 bool ledOn = true;
+const int ILED = D4;
+const int RCSWITCH_PIN = D3;
+
+socket_timer_t timers[] = {
+  socket_timer_t{dtINVALID_ALARM_ID, "Livingroom lamp ON", true, &sockets[0], 17, 30, 0},
+  socket_timer_t{dtINVALID_ALARM_ID, "Livingroom lamp OFF", false, &sockets[0], 0, 1, 0},
+  socket_timer_t{dtINVALID_ALARM_ID, "Night illumination ON", true, &sockets[1], 17, 30, 0},
+  socket_timer_t{dtINVALID_ALARM_ID, "Night illumination OFF", false, &sockets[1], 9, 0, 0},
+  socket_timer_t{dtINVALID_ALARM_ID, "Babyphone Station Power ON", true, &sockets[2], 18, 30, 0},
+  socket_timer_t{dtINVALID_ALARM_ID, "Babyphone Station Power OFF", false, &sockets[2], 10, 0, 0},
+};
 
 time_t updateTimeFromNTP() {
   Serial.print("Refresh clock from ntp: ");
@@ -40,51 +61,65 @@ time_t updateTimeFromNTP() {
 }
 
 void pulse() {
-  digitalWrite(D0, ledOn ? HIGH : LOW);
-  ledOn = !ledOn;
+  digitalWrite(ILED, LOW);
+  Alarm.delay(50);
+  digitalWrite(ILED, HIGH);
 }
 
-void heartbeat() {
-  Serial.print("Heartbeat @ ");
-  Serial.print(ntpClient.getFormattedTime());
-  Serial.print(", millis = ");
-  Serial.println(millis());
-}
+void execute_socket_timer(socket_timer_t *socket_timer) {
+  Serial.print("Executing alarm '");
+  Serial.print(socket_timer->name);
+  Serial.print("' on socket ");
+  Serial.print(socket_timer->socket->family);
+  Serial.print(", ");
+  Serial.print(socket_timer->socket->group);
+  Serial.print(", ");
+  Serial.println(socket_timer->socket->number);
 
-void socketN(int n, bool on) {
-  Serial.print("Turning socket ");
-  Serial.print(n);
-  Serial.print(on ? " on" : " off");
-
-  if (on) {
-    rcswitch.switchOn(sockets[n].family, sockets[n].group, sockets[n].number);
+  if (socket_timer->on) {
+    rcswitch.switchOn(socket_timer->socket->family, socket_timer->socket->group, socket_timer->socket->number);
   } else {
-    rcswitch.switchOff(sockets[n].family, sockets[n].group, sockets[n].number);
+    rcswitch.switchOff(socket_timer->socket->family, socket_timer->socket->group, socket_timer->socket->number);
   }
 
   Serial.println(" ... done.");
 }
 
-void socket1PowerOn() { socketN(0, true); }
-void socket2PowerOn() { socketN(1, true); }
-void socket3PowerOn() { socketN(2, true); }
-void socket1PowerOff() { socketN(0, false); }
-void socket2PowerOff() { socketN(1, false); }
-void socket3PowerOff() { socketN(2, false); }
+void socket_timer_callback() {
+  AlarmID_t alarm_id = Alarm.getTriggeredAlarmId();
 
-void socket2Alternate() {
-  Serial.print("Alternation: ");
-  socketN(1, socket1);
-  socket1 = !socket1;
+  Serial.print("Triggered alarm is ");
+  Serial.println(alarm_id);
+
+  for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
+    if (timers[i].alarm_id == alarm_id) {
+      execute_socket_timer(&timers[i]);
+      return;
+    }
+  }
+
+  Serial.print("Unable to resolve alarm w/ id ");
+  Serial.println(alarm_id);
+}
+
+void register_socket_timer(socket_timer_t *socket_timer) {
+  AlarmID_t alarm_id = Alarm.alarmRepeat(socket_timer->hour, socket_timer->minute, socket_timer->second, socket_timer_callback);
+  socket_timer->alarm_id = alarm_id;
+
+  Serial.print("Registered alarm '");
+  Serial.print(socket_timer->name);
+  Serial.print("' w/ id ");
+  Serial.println(alarm_id);
 }
 
 void setup() {
   Serial.begin(9600);
   Serial.println();
 
-  pinMode(D0, OUTPUT);
+  pinMode(ILED, OUTPUT);
+  digitalWrite(ILED, HIGH);
 
-  rcswitch.enableTransmit(D2);
+  rcswitch.enableTransmit(RCSWITCH_PIN);
   delay(250);
 
   Serial.print("Attempting to connect to SSID ");
@@ -110,21 +145,11 @@ void setup() {
   setSyncInterval(60);
 
   Serial.println("Registering alarms ...");
-  Alarm.timerRepeat(3, pulse);
-  Alarm.timerRepeat(15, heartbeat);
+  Alarm.timerRepeat(2, pulse);
 
-  // Register triggers for babyphone station
-  Alarm.alarmRepeat(12, 15, 0, socket1PowerOn);
-  Alarm.alarmRepeat(18, 30, 0, socket1PowerOn);
-  Alarm.alarmRepeat(10, 30, 0, socket1PowerOff);
-
-  // Register triggers for night illumination socket
-  Alarm.alarmRepeat(17, 30, 0, socket2PowerOn);
-  Alarm.alarmRepeat(9, 0, 0, socket2PowerOff);
-
-  // Register triggers for living room lamp
-  Alarm.alarmRepeat(17, 30, 0, socket3PowerOn);
-  Alarm.alarmRepeat(0, 30, 0, socket3PowerOff);
+  for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
+    register_socket_timer(&timers[i]);
+  }
 
   Serial.println("Boot up sequence finished.");
 }
