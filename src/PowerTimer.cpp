@@ -7,48 +7,14 @@
 #include <WiFiUdp.h>
 #include <RCSwitch.h>
 
+#include "PowerTimer.h"
 #include "constants.h"
+#include "config.h"
 
 WiFiUDP ntpUDP;
 NTPClient ntpClient(ntpUDP, NTP_SERVER, NTP_TIME_OFFSET, NTP_DEFAULT_SYNC);
 
 RCSwitch rcswitch = RCSwitch();
-
-typedef struct {
-  char family;
-  int group;
-  int number;
-} socket_t;
-
-socket_t sockets[] = {
-  socket_t{'a', 1, 1},
-  socket_t{'a', 1, 2},
-  socket_t{'a', 1, 3}
-};
-
-typedef struct {
-  AlarmID_t alarm_id;
-  String name;
-  bool on;
-  socket_t *socket;
-  int hour;
-  int minute;
-  int second;
-} socket_timer_t;
-
-bool socket1 = true;
-bool ledOn = true;
-const int ILED = D4;
-const int RCSWITCH_PIN = D3;
-
-socket_timer_t timers[] = {
-  socket_timer_t{dtINVALID_ALARM_ID, "Livingroom lamp ON", true, &sockets[0], 17, 30, 0},
-  socket_timer_t{dtINVALID_ALARM_ID, "Livingroom lamp OFF", false, &sockets[0], 0, 1, 0},
-  socket_timer_t{dtINVALID_ALARM_ID, "Night illumination ON", true, &sockets[1], 17, 30, 0},
-  socket_timer_t{dtINVALID_ALARM_ID, "Night illumination OFF", false, &sockets[1], 9, 0, 0},
-  socket_timer_t{dtINVALID_ALARM_ID, "Babyphone Station Power ON", true, &sockets[2], 18, 30, 0},
-  socket_timer_t{dtINVALID_ALARM_ID, "Babyphone Station Power OFF", false, &sockets[2], 10, 0, 0},
-};
 
 time_t updateTimeFromNTP() {
   Serial.print("Refresh clock from ntp: ");
