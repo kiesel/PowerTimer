@@ -20,4 +20,7 @@ typedef struct {
   int second;
 } socket_timer_t;
 
+extern void setupHttpService();
+extern void execute_socket_command(bool, socket_t *);
+
 #endif

@@ -4,6 +4,7 @@
 #include <ESP8266Wifi.h>
 #include <SPI.h>
 #include <NTPClient.h>
+#include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
 #include <RCSwitch.h>
 
@@ -15,6 +16,7 @@ WiFiUDP ntpUDP;
 NTPClient ntpClient(ntpUDP, NTP_SERVER, NTP_TIME_OFFSET, NTP_DEFAULT_SYNC);
 
 RCSwitch rcswitch = RCSwitch();
+ESP8266WebServer server(80);
 
 time_t updateTimeFromNTP() {
   Serial.print("Refresh clock from ntp: ");
@@ -42,13 +44,16 @@ void execute_socket_timer(socket_timer_t *socket_timer) {
   Serial.print(", ");
   Serial.println(socket_timer->socket->number);
 
-  if (socket_timer->on) {
-    rcswitch.switchOn(socket_timer->socket->family, socket_timer->socket->group, socket_timer->socket->number);
-  } else {
-    rcswitch.switchOff(socket_timer->socket->family, socket_timer->socket->group, socket_timer->socket->number);
-  }
-
+  execute_socket_command(socket_timer->on, socket_timer->socket);
   Serial.println(" ... done.");
+}
+
+void execute_socket_command(bool on, socket_t *socket) {
+  if (on) {
+    rcswitch.switchOn(socket->family, socket->group, socket->number);
+  } else {
+    rcswitch.switchOff(socket->family, socket->group, socket->number);
+  }
 }
 
 void socket_timer_callback() {
@@ -110,6 +115,8 @@ void setup() {
   setSyncProvider(updateTimeFromNTP);
   setSyncInterval(60);
 
+  setupHttpService();
+
   Serial.println("Registering alarms ...");
   Alarm.timerRepeat(2, pulse);
 
@@ -120,11 +127,41 @@ void setup() {
   Serial.println("Boot up sequence finished.");
 }
 
+void setupHttpService() {
+  Serial.println("Starting HTTP service ...");
+
+  server.on("/", []() {
+    server.send(200, "text/html", "<html><body>Power service running ...</body></html>");
+  });
+
+  server.on("/socket", HTTP_POST, []() {
+    String number = server.arg("n");
+    String cmd = server.arg("s");
+
+    int index = number.toInt();
+
+    if (index < 0 || index > sizeof(sockets) / sizeof(socket_t)) {
+      server.send(400, "text/plain", "Socket index not found.");
+      return;
+    }
+
+    bool enable = (0 == cmd.compareTo("on"));
+    execute_socket_command(enable, &sockets[0]);
+    server.send(200, "text/plain", "Ok, switched socket.");
+  });
+
+  server.begin();
+  Serial.println("HTTP ready.");
+}
+
 void loop() {
 
   // Let NTP client sync
   ntpClient.update();
 
   // Alarms handler
-  Alarm.delay(1000);
+  Alarm.delay(100);
+
+  // Service HTTP clients
+  server.handleClient();
 }
