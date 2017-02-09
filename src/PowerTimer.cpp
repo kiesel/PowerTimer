@@ -29,7 +29,7 @@ time_t updateTimeFromNTP() {
 }
 
 void pulse() {
-  analogWrite(ILED, (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0);
+  analogWrite(ILED, 255-(exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0);
 }
 
 void execute_socket_timer(socket_timer_t *socket_timer) {
@@ -86,6 +86,7 @@ void setup() {
   Serial.println();
 
   pinMode(ILED, OUTPUT);
+  analogWriteRange(255);
   digitalWrite(ILED, HIGH);
 
   rcswitch.enableTransmit(RCSWITCH_PIN);
@@ -168,7 +169,7 @@ void loop() {
   ntpClient.update();
 
   // Alarms handler
-  Alarm.delay(100);
+  Alarm.delay(10);
 
   // Service HTTP clients
   server.handleClient();
