@@ -8,6 +8,7 @@ typedef struct {
   char family;
   int group;
   int number;
+  String name;
 } socket_t;
 
 typedef struct {

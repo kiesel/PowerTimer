@@ -29,9 +29,7 @@ time_t updateTimeFromNTP() {
 }
 
 void pulse() {
-  digitalWrite(ILED, LOW);
-  Alarm.delay(50);
-  digitalWrite(ILED, HIGH);
+  analogWrite(ILED, (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0);
 }
 
 void execute_socket_timer(socket_timer_t *socket_timer) {
@@ -118,7 +116,7 @@ void setup() {
   setupHttpService();
 
   Serial.println("Registering alarms ...");
-  Alarm.timerRepeat(2, pulse);
+  // Alarm.timerRepeat(2, pulse);
 
   for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
     register_socket_timer(&timers[i]);
@@ -131,23 +129,31 @@ void setupHttpService() {
   Serial.println("Starting HTTP service ...");
 
   server.on("/", []() {
-    server.send(200, "text/html", "<html><body>Power service running ...</body></html>");
+    String page = "<html><body>Power service running<br/>Control sockets:<br/>";
+    page += "<form method='get'><ul>";
+
+    for (int i = 0; i < sizeof(sockets) / sizeof(socket_t); i++) {
+      page += "<li>Socket " + sockets[i].name + " <a href='/socket?n=" + i + "&amp;s=on'>ON</a> | <a href='/socket?n=" + i + "&amp;s=off'>OFF</a></li>";
+    }
+
+    page += "</ul></body></html>";
+    server.send(200, "text/html", page);
   });
 
-  server.on("/socket", HTTP_POST, []() {
+  server.on("/socket", HTTP_GET, []() {
     String number = server.arg("n");
     String cmd = server.arg("s");
 
     int index = number.toInt();
 
     if (index < 0 || index > sizeof(sockets) / sizeof(socket_t)) {
-      server.send(400, "text/plain", "Socket index not found.");
+      server.send(404, "text/plain", "Socket index not found.");
       return;
     }
 
     bool enable = (0 == cmd.compareTo("on"));
-    execute_socket_command(enable, &sockets[0]);
-    server.send(200, "text/plain", "Ok, switched socket.");
+    execute_socket_command(enable, &sockets[index]);
+    server.send(200, "text/plain", "Ok, switched socket '" + sockets[index].name + "'\n");
   });
 
   server.begin();
@@ -155,6 +161,8 @@ void setupHttpService() {
 }
 
 void loop() {
+
+  pulse();
 
   // Let NTP client sync
   ntpClient.update();

@@ -5,9 +5,9 @@
 #include "PowerTimer.h"
 
 socket_t sockets[] = {
-  socket_t{'a', 1, 1},
-  socket_t{'a', 1, 2},
-  socket_t{'a', 1, 3}
+  socket_t{'a', 1, 1, "Livingroom lamp"},
+  socket_t{'a', 1, 2, "Night illumination LED"},
+  socket_t{'a', 1, 3, "Babyphone Station"}
 };
 
 socket_timer_t timers[] = {
