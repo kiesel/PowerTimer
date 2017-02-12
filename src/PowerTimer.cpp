@@ -154,7 +154,7 @@ void setupHttpService() {
 
     bool enable = (0 == cmd.compareTo("on"));
     execute_socket_command(enable, &sockets[index]);
-    server.send(200, "text/plain", "Ok, switched socket '" + sockets[index].name + "'\n");
+    server.send(200, "text/html", "<html><header><meta http-equiv='refresh' content='1, url=/'/><body>Ok, switched socket '" + sockets[index].name + "</body></html>'\n");
   });
 
   server.begin();
