@@ -14,7 +14,6 @@ typedef struct {
 
 typedef struct {
   AlarmID_t alarm_id;
-  String name;
   bool on;
   socket_t *socket;
   int hour;
