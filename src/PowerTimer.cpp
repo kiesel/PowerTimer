@@ -33,14 +33,7 @@ void pulse() {
 }
 
 void execute_socket_timer(socket_timer_t *socket_timer) {
-  Serial.print("Executing alarm '");
-  Serial.print(socket_timer->name);
-  Serial.print("' on socket ");
-  Serial.print(socket_timer->socket->family);
-  Serial.print(", ");
-  Serial.print(socket_timer->socket->group);
-  Serial.print(", ");
-  Serial.println(socket_timer->socket->number);
+  Serial.printf("Executing alarm '%s' on socket '%s'\n", socket_timer->name.c_str(), socket_timer->socket->name.c_str());
 
   execute_socket_command(socket_timer->on, socket_timer->socket);
   Serial.println(" ... done.");
@@ -48,8 +41,10 @@ void execute_socket_timer(socket_timer_t *socket_timer) {
 
 void execute_socket_command(bool on, socket_t *socket) {
   if (on) {
+    Serial.printf("switchOn('%c', %d, %d)\n", socket->family, socket->group, socket->number);
     rcswitch.switchOn(socket->family, socket->group, socket->number);
   } else {
+    Serial.printf("switchOff('%c', %d, %d)\n", socket->family, socket->group, socket->number);
     rcswitch.switchOff(socket->family, socket->group, socket->number);
   }
 }
@@ -75,10 +70,7 @@ void register_socket_timer(socket_timer_t *socket_timer) {
   AlarmID_t alarm_id = Alarm.alarmRepeat(socket_timer->hour, socket_timer->minute, socket_timer->second, socket_timer_callback);
   socket_timer->alarm_id = alarm_id;
 
-  Serial.print("Registered alarm '");
-  Serial.print(socket_timer->name);
-  Serial.print("' w/ id ");
-  Serial.println(alarm_id);
+  Serial.println("* Registered " + socket_timer_toString(socket_timer));
 }
 
 void setup() {
@@ -117,7 +109,6 @@ void setup() {
   setupHttpService();
 
   Serial.println("Registering alarms ...");
-  // Alarm.timerRepeat(2, pulse);
 
   for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
     register_socket_timer(&timers[i]);

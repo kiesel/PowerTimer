@@ -23,5 +23,7 @@ typedef struct {
 
 extern void setupHttpService();
 extern void execute_socket_command(bool, socket_t *);
+extern String socket_toString(socket_t *);
+extern String socket_timer_toString(socket_timer_t *);
 
 #endif
