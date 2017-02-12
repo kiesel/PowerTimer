@@ -32,38 +32,29 @@ void pulse() {
   analogWrite(ILED, 255-(exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0);
 }
 
-void execute_socket_timer(socket_timer_t *socket_timer) {
-  Serial.printf("Executing alarm '%s' on socket '%s'\n", socket_timer->name.c_str(), socket_timer->socket->name.c_str());
-
-  execute_socket_command(socket_timer->on, socket_timer->socket);
-  Serial.println(" ... done.");
-}
-
-void execute_socket_command(bool on, socket_t *socket) {
-  if (on) {
-    Serial.printf("switchOn('%c', %d, %d)\n", socket->family, socket->group, socket->number);
-    rcswitch.switchOn(socket->family, socket->group, socket->number);
-  } else {
-    Serial.printf("switchOff('%c', %d, %d)\n", socket->family, socket->group, socket->number);
-    rcswitch.switchOff(socket->family, socket->group, socket->number);
+socket_timer_t* get_socket_timer(AlarmID_t alarm_id) {
+  for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
+    if (timers[i].alarm_id == alarm_id) {
+      return &timers[i];
+    }
   }
+
+  return NULL;
 }
 
 void socket_timer_callback() {
   AlarmID_t alarm_id = Alarm.getTriggeredAlarmId();
 
+  socket_timer_t *object = get_socket_timer(alarm_id);
+  if (object == NULL) {
+    Serial.print("Unable to resolve alarm w/ id ");
+    Serial.println(alarm_id);
+  }
+
   Serial.print("Triggered alarm is ");
   Serial.println(alarm_id);
 
-  for (int i = 0; i < sizeof(timers) / sizeof(socket_timer_t); i++) {
-    if (timers[i].alarm_id == alarm_id) {
-      execute_socket_timer(&timers[i]);
-      return;
-    }
-  }
-
-  Serial.print("Unable to resolve alarm w/ id ");
-  Serial.println(alarm_id);
+  socket_timer_execute(object);
 }
 
 void register_socket_timer(socket_timer_t *socket_timer) {
@@ -144,8 +135,9 @@ void setupHttpService() {
     }
 
     bool enable = (0 == cmd.compareTo("on"));
-    execute_socket_command(enable, &sockets[index]);
-    server.send(200, "text/html", "<html><header><meta http-equiv='refresh' content='1, url=/'/><body>Ok, switched socket '" + sockets[index].name + "</body></html>'\n");
+    Serial.println("Execute on HTTP, turn " + (enable ? String("ON") : String("OFF")) + " socket " + socket_toString(&sockets[index]));
+    socket_execute_command(enable, &sockets[index]);
+    server.send(200, "text/html", "<html><header><meta http-equiv='refresh' content='3, url=/'/><body>Ok, switched socket '" + sockets[index].name + "</body></html>'\n");
   });
 
   server.begin();

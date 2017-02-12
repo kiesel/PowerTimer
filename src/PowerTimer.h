@@ -2,6 +2,7 @@
 #define POWERTIMER_H
 
 #include <Arduino.h>
+#include <RCSwitch.h>
 #include <TimeAlarms.h>
 
 typedef struct {
@@ -22,8 +23,13 @@ typedef struct {
 } socket_timer_t;
 
 extern void setupHttpService();
-extern void execute_socket_command(bool, socket_t *);
+extern void socket_execute_command(bool, socket_t *);
+extern void socket_timer_execute(socket_timer_t *);
 extern String socket_toString(socket_t *);
 extern String socket_timer_toString(socket_timer_t *);
+
+extern socket_timer_t* get_socket_timer(AlarmID_t);
+
+extern RCSwitch rcswitch;
 
 #endif
